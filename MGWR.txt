@@ -1,0 +1,66 @@
+import pandas as pd
+import numpy as np
+np.float = float  # Maintain compatibility with older versions
+from mgwr.gwr import GWR
+from mgwr.gwr import MGWR
+from mgwr.sel_bw import Sel_BW
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+import matplotlib.pyplot as plt
+
+# 1. Load and prepare data
+data = pd.read_excel(r'F:\21_excel\4_GD\example.csv')
+# Extract coordinates and variables
+coords = data[['Longitude', 'Latitude']].values  # Coordinates
+Y = data['FVC'].values.reshape(-1, 1)  # Dependent variable (Fractional Vegetation Cover)
+X = data[["TP","TR","ST","SW","VPD","GDP","NTL","POP"]].values  # Independent variables
+# Split data into training and testing sets
+coords_train, coords_test, X_train, X_test, Y_train, Y_test = train_test_split(
+    coords, X, Y, test_size=0.2, random_state=42
+)
+
+# 2. Bandwidth selection; multi=True enables multiscale bandwidths
+selector = Sel_BW(coords_train, Y_train, X_train, multi=True)
+bandwidths = selector.search()  # Search for optimal bandwidths
+print(f"Optimal Bandwidths: {bandwidths}")
+# Validate bandwidth results format
+if not isinstance(bandwidths, np.ndarray) or len(bandwidths) != X_train.shape[1] + 1:
+    raise ValueError("Invalid bandwidth results format. Please check input data and Sel_BW parameters!")
+
+# 3. Build MGWR model
+mgwr_model = MGWR(coords_train, Y_train, X_train, selector).fit()
+print(mgwr_model.summary())
+
+# Extract regression coefficients
+coefficients = mgwr_model.params  # Local regression coefficients
+intercepts = coefficients[:, 0]  # Intercept terms
+slopes = coefficients[:, 1:]  # Independent variable coefficients
+
+# 4. Model prediction (test set)
+predicted_salt_content = []
+for i, coord in enumerate(coords_test):
+    # Find nearest training point index
+    distances = np.linalg.norm(coords_train - coord, axis=1)
+    nearest_index = np.argmin(distances)
+    # Predict using nearest training point's coefficients
+    intercept = intercepts[nearest_index]
+    slope = slopes[nearest_index]
+    prediction = intercept + np.dot(X_test[i], slope)
+    predicted_salt_content.append(prediction)
+predicted_salt_content = np.array(predicted_salt_content)
+
+# Calculate prediction error (Mean Squared Error)
+mse = mean_squared_error(Y_test, predicted_salt_content)
+print(f"Mean Squared Error on Test Data: {mse}")
+
+# 5. Visualize local coefficients
+import geopandas as gpd
+# Create DataFrame with coefficients
+coef_df = pd.DataFrame(mgwr_model.params, columns=['Intercept', "TP","TR","ST","SW","VPD","GDP","NTL","POP"])
+# Create GeoDataFrame for spatial visualization
+gdf = gpd.GeoDataFrame(
+    coef_df, geometry=gpd.points_from_xy(coords_train[:, 0], coords_train[:, 1])
+# Plot spatial distribution of TP coefficient
+gdf.plot(column='TP', cmap='coolwarm', legend=True)
+plt.title('Spatial Distribution of Coefficients for TP')
+plt.show()
