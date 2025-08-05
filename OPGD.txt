@@ -1,0 +1,55 @@
+# Load OPGD package from Yongze Song's https://cran.r-project.org/web/packages/GD/
+
+# Read input data
+data <- read.csv("I://21_excel//4_GD//2001.csv", header=TRUE, sep=",")
+
+# Select columns (modify the numbers according to your variables)
+data1 <- data[,2:13] 
+
+# Convert data frame to numeric
+data2 <- as.data.frame(lapply(data1, as.numeric)) 
+
+# Remove NA values (uncomment if needed)
+# data2 <- na.omit(data2)
+
+## For years before 1992
+# names(data2) <- c("FVC","Tmean", "Tmax", "Tmin","TP","TR","ST","SW","VPD","POP")
+
+## For 1992 and later
+names(data2) <- c("FVC","Tmean", "Tmax", "Tmin","TP","TR","ST","SW","VPD","GDP","NTL","POP")
+
+# Load GD package
+library(GD)
+
+# Discretization methods to try
+discmethod <- c("equal","natural","quantile","geometric")  
+
+# Number of intervals to test (from 5 to 20 classes, since we want to find the optimal q value)
+discitv <- c(5:20)
+
+## For years before 1992
+# datagdm <- gdm(FVC ~ Tmean + Tmax + Tmin + TP + TR + ST + SW + VPD + POP,
+#                continuous_variable = c("Tmean", "Tmax","Tmin","TP", "TR","ST","SW","VPD", "POP"),
+#                data = data2,
+#                discmethod = discmethod, discitv= discitv)
+
+## For 1992 and later
+datagdm <- gdm(FVC ~ Tmean + Tmax + Tmin + TP + TR + ST + SW + VPD + GDP + NTL + POP,
+               continuous_variable = c("Tmean", "Tmax","Tmin","TP", "TR","ST","SW","VPD","GDP","NTL","POP"),
+               data = data2,
+               discmethod = discmethod, discitv= discitv)
+
+# Display results
+datagdm
+
+# Set plot margins
+par(mar = c(3,3,2,2))
+
+# Basic plot (uncomment if needed)
+# plot(datagdm)
+
+# Load ggplot2 for enhanced plotting
+library(ggplot2)
+
+# Create plot with ggplot2
+plot(datagdm)
