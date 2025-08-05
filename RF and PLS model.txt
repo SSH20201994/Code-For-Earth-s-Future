@@ -1,0 +1,23 @@
+
+% PLS model
+data=xlsread('C:\Users\Administrator\Desktop\23_result\Global\1982.csv','1982');
+X=single(data(:,5:13));
+Y=single(data(:,16:19));
+clear data;
+kNDVI=Y(:,1);
+kNDVI1=zscore(kNDVI);
+cli=zscore(X);
+ncomp=min(size(X,1)-1,size(X,2));
+[XL_kNDVI,YL_kNDVI,XS_kNDVI,~,~,~,~,stats_kNDVI] = plsregress(cli,kNDVI1,ncomp);
+W0_kNDVI = stats_kNDVI.W ./ sqrt(sum(stats_kNDVI.W.^2,1));
+p_kNDVI = size(XL_kNDVI,1);
+sumSq_kNDVI = sum(XS_kNDVI.^2,1).*sum(YL_kNDVI.^2,1);
+vipScore_kNDVI = sqrt(p_kNDVI* sum(sumSq_kNDVI.*(W0_kNDVI.^2),2) ./ sum(sumSq_kNDVI,2));
+VIPS_kNDVI=vipScore_kNDVI; 
+xlswrite('E:\FVCdataset\23_result\2_PLS_RF\2_kNDVI_PLSandRF.xlsx',VIPS_kNDVI,'Global','B2:B12');
+
+% RFmodel
+Mdl_kNDVI = TreeBagger(500,cli,kNDVI1,'Method','regression','Surrogate','on',...
+'PredictorSelection','curvature','OOBPredictorImportance','on','MinLeafSize',5);
+RF_imp_kNDVI=Mdl_kNDVI.OOBPermutedPredictorDeltaError';
+xlswrite('E:\FVCdataset\23_result\2_PLS_RF\2_kNDVI_PLSandRF.xlsx',RF_imp_kNDVI,'Global','B17:B27');
