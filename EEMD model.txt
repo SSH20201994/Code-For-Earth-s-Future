@@ -1,0 +1,43 @@
+datadir='E:\FVCdataset\01_FVC\';
+filelist=dir([datadir,'*.tif']);
+num=length(filelist);
+Ref=georasterref('RasterSize',[1801,3600],'Latlim',[-90,90],'Lonlim',[-180,180]);
+FVCdata=[];
+for ii=1:num
+    a=imread([datadir,filelist(ii).name]);
+    FVCdata(:,:,ii)=a;
+end
+FVCdata=single(FVCdata);
+[m,n,p]=size(FVCdata);
+FVCdata1=reshape(FVCdata,m*n,p);
+[interval1,interval2]=tresignew95(5000,39);
+datatrend=zeros(m*n,39).*nan; 
+Etrend=zeros(m*n,1).*nan;
+Etrend_sig=zeros(m*n,1).*nan;
+Etrend_direct=zeros(m*n,1).*nan; 
+Etrend_TP=zeros(m*n,1).*nan; 
+parfor jj=1:m*n
+    data1=FVCdata1(jj,:);
+    if (sum(isnan(data1))>5 || sum(data1==0)>5 || length(unique(data1))<5)
+        continue;
+    else
+        data1(isnan(data1))=0;  
+        allmode=eemd(data1,0.2,500);
+        trend1=allmode(:,end)';
+        [sign,po]=eemdtrend(trend1); 
+        [tretypesign,~,~] = newredsig(data1,trend1,interval1,interval2); 
+        datatrend(jj,:)=trend1; 
+        Etrend(jj,1)=trend1(end)-trend1(1); 
+        Etrend_sig(jj,1)=tretypesign; 
+        Etrend_direct(jj,1)=sign;
+        Etrend_TP(jj,1)=abs(po); 
+    end
+end
+FVC_trend=single(flipud(reshape(Etrend,m,n))); 
+Etrend_sig1=single(flipud(reshape(Etrend_sig,m,n))); 
+Etrend_direct1=single(flipud(reshape(Etrend_direct,m,n))); 
+Etrend_TP1=single(flipud(reshape(Etrend_TP,m,n)+1982-1));
+geotiffwrite('E:\FVCdataset\14_FVCtrend\FVC_trend_all.tif',FVC_trend,Ref); 
+geotiffwrite('E:\FVCdataset\14_FVCtrend\FVC_trend_sig.tif',Etrend_sig1,Ref); 
+geotiffwrite('E:\FVCdataset\14_FVCtrend\FVC_trend_direction.tif',Etrend_direct1,Ref);
+geotiffwrite('E:\FVCdataset\14_FVCtrend\FVC_TPyear.tif',Etrend_TP1,Ref);
